@@ -1,0 +1,1843 @@
+% \iffalse
+%<*hack>
+\ifx\undefined\@undefined\relax\else
+%<*driver>
+\documentclass[ltxdoc]{local}
+\usepackage{biblatex}
+\bibliography{bibs}
+\GetFileInfo{local.sty}
+\title{\pkg{\filename}の便覧及び実装}
+\author{\(\bar{B}\)}
+\date{\filedate\quad（\fileversion{}版）}
+\begin{document}
+\maketitle
+\tableofcontents
+\DocInput{\filename}
+\end{document}
+%</driver>
+\fi
+%</hack>
+% \fi
+% \fi
+% \part{便覧}
+% \pkg{\filename}は，俺の為の梱譜である。
+% 
+% \section{要件}
+% \begin{description}
+% \item[対象機構] \upLaTeXe{}，\TeX~Live 2019以上。
+% 
+% \item[前提譜類]
+% \pkg{\filename}が前提とする譜類は次の通り。
+% \begin{itemize}
+% \item たくさんあります。
+% \end{itemize}
+% 大量にあるが，\pkg{\filename}と同一台録に位置する\cls{local}を
+% 除いて，全て\TeX~Live 2019の全体導入下であれば確実に利用できる。
+% \end{description}
+% 
+% \clearpage
+% \newgeometry{left=10pc}
+% \onecolumn
+% \StopEventually{}
+% \DoNotIndex{\if,\ifx,\else,\do}
+% \DoNotIndex{\,,\;,\:,\!,\\,\#}
+% \DoNotIndex{\@for,\@ifstar,\@nameuse}
+% \DoNotIndex{\@onlypreamble}
+% \part{実装}
+% 処理系が(u)\pLaTeXe{}であることを要求。
+% \changes{v0.1.8}{2020/05/26}{pLaTeX系列で処理すべきである旨を明示。}
+%    \begin{macrocode}
+\NeedsTeXFormat{pLaTeX2e}
+%    \end{macrocode}
+% 梱譜情報の提供。
+%    \begin{macrocode}
+\ProvidesPackage{local}%
+[2020/06/27 0.2.1
+User local package file.]
+%    \end{macrocode}
+% \changes{v0.1.4}{2020/05/19}{\cmd{changes}による変更履歴記録開始。
+% この時点までにnoether及びmathmisc等への対応は完了。}
+% \changes{v0.1.9}{2020/05/26}{情報の表記を少し変更。}
+% \changes{v0.1.20}{2020/06/09}{解説文書をより構造的に。}
+% \changes{v0.1.21}{2020/06/12}{何か変えた筈。何を変えたか思い出せん。}
+% \changes{v0.1.22}{2020/06/21}{解説文書関連の機能を
+% マトモに使えるように。}
+% \changes{v0.2.1}{2020/06/27}{\cmd{changes}の位置を変更対象の命令等が
+% 記述されている適切な場所に移動。}
+% \section{全体}
+% \subsection{応付子の設定}
+% \TikZ{}を使うか否か（既定は否）。
+%    \begin{macrocode}
+\newif\if@lcl@@usetikz@
+\@lcl@@usetikz@false
+\DeclareOption{usetikz}{\@lcl@@usetikz@true}
+%    \end{macrocode}
+% \pkg{makeidx}を使うか否か（既定は否）。
+%    \begin{macrocode}
+\newif\if@lcl@@usemidx@
+\@lcl@@usemidx@false
+\DeclareOption{usemidx}{\@lcl@@usemidx@true}
+%    \end{macrocode}
+%    \begin{macrocode}
+\ProcessOptions\relax
+%    \end{macrocode}
+
+% \section{字}
+% \begin{macro}{\GetFontShapeTFM}
+% 或るフォントにが用いるTFM名を取得。
+% \changes{v0.4.0}{2020-07-04}{新規作成。}
+%    \begin{macrocode}
+\DeclareRobustCommand*{\GetFontShapeTFM}[5][]{%
+\begingroup
+%第1引数が空の場合はフォント寸法を指定しない。
+\if\relax\detokenize{#1}\relax\else
+\def\f@size{#1}\fi
+\let\external@font\@empty
+\edef\font@info{%
+\expandafter\expandafter\expandafter
+\string\csname#2/#3/#4/#5\endcsname}%
+\try@size@range
+\ifx\external@font\@empty
+\try@size@substitution
+\fi
+\mandatory@arg
+\endgroup
+}
+%    \end{macrocode}
+% \end{macro}
+% \subsection{欧文}
+%    \begin{macrocode}
+\RequirePackage[T1]{fontenc}
+\RequirePackage{tgtermes,tgheros}
+%    \end{macrocode}
+% \subsection{和文}
+% \begin{tabbing}
+% \hspace{4zw} \= \hspace{4em} \kill
+% あ漢A        \> \textbf{あ漢A} \\
+% \textsf{あ漢A} \> \textsf{\textbf{あ漢A}}
+% \end{tabbing}
+%    \begin{macrocode}
+\renewcommand\bfdefault{bx}
+\setminchofont[0]{NotoSerifCJK-Medium.ttc}
+\setlightminchofont[0]{NotoSerifCJK-Light.ttc}
+\setboldminchofont[0]{NotoSerifCJK-Black.ttc}
+%    \end{macrocode}
+% \begin{macro}{\textlt}
+% 細字の欧文字体をComputer Modern Romanにして，
+% \verb|\textlt|命令を定義。
+% 例: \textlt{細字Abc}。
+%    \begin{macrocode}
+\DeclareRelationFont{\otf@JYn}{hmc}{l}{}%
+{\encodingdefault}{cmr}{m}{}
+\DeclareTextFontCommand{\textlt}%
+{\userelfont\ltseries}
+%    \end{macrocode}
+% \end{macro}
+% \subsection{数学}
+% \pkg{stix2}収録の字体を，数式に用いる。
+% ギリシャ文字を，ラテン文字と同様に（記号ではなく字母として）扱う。
+% この時点では応付子を指定するだけで，読み込まない
+%（\pkg{amsmath}対策）。
+% \changes{v0.1.5}{2020/05/25}{\pkg{sitx2}と\pkg{amsmath}の
+% 問題を解決。}
+%    \begin{macrocode}
+\PassOptionsToPackage{notext,lcgreekalpha}{stix2}
+%    \end{macrocode}
+% \begin{macro}{\headfont}
+% 題字の字体を再定義。
+%    \begin{macrocode}
+\renewcommand\headfont{\bfseries}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\emph}
+% \emph{強調}字体を変更。
+%    \begin{macrocode}
+\let\emph=\@undefined
+\DeclareTextFontCommand{\emph}{\bfseries}
+%    \end{macrocode}
+% \end{macro}
+% 間隔の調整。
+%    \begin{macrocode}
+\AtBeginDocument{%
+\setlength\kanjiskip{0zw plus 0.06zw minus 0.03zw}%
+\setlength\xkanjiskip{0.2zw plus 0.1zw minus 0.15zw}%
+%
+\setlength\abovecaptionskip{-0.5zh plus 0.1zh minus 0.2zh}%
+\setlength\textfloatsep{0.5zh plus 0.1zh minus 0.2zh}%
+%
+\setlength\abovedisplayskip{0.4zh plus 0.05zh minus 0.2zh}%
+\setlength\belowdisplayskip{0.4zh plus 0.05zh minus 0.2zh}%
+\setlength\abovedisplayshortskip{0.4zh plus 0.05zh minus 0.2zh}%
+\setlength\belowdisplayshortskip{0.4zh plus 0.05zh minus 0.2zh}%
+%
+\renewcommand{\baselinestretch}{0.9}\selectfont
+}
+%    \end{macrocode}
+% 列記における別行数式の後ろの幅。
+% 
+% 一旦無効化。
+% 列記環境以外でも\verb|\@trivlist|が使われている
+% （例えば\pkg{doc}の\verb|{macro}|環境）が，
+% この場合は後ろ空きがあると不味いので。
+% 
+% と思ったけど，何か知らんが
+% 無効になって欲しいところで無効にならず
+% 逆に有効にしたいところで効かなくなったので
+% 不便を承知で有効化。知るかボケ。
+% 
+% てゆーかー，これ列挙環境内だったら何処だろうが適用されるから
+% 列挙の末端以外にある別行数式がおかしくなるんですけど〜
+% 
+% \begin{minipage}[t][][t]{0.45\textwidth}
+% \begin{itemize}
+% \item 普通の文
+% \item 事例1
+%       \[x = y\]
+% \item 普通の文
+% \item \[x = y\]
+%       事例2
+% \item 普通の文
+% \item 事例3
+%       \[x = y\]
+%       事例3（続き）
+% \end{itemize}
+% \end{minipage}
+% \begin{minipage}[t][][t]{0.45\textwidth}
+% \begin{description}
+% \item[あいうえ]
+%      \[\int_a^b X < c\]
+% \item[おかきく]
+%      \[\int_a^b X < c\]
+% \end{description}
+% 
+% \small\hspace{1zw}
+% うーん。ここでは普通だ……。
+% noethorでの「有向画表」節の対の公理とかを
+% 説明している\verb|{description}|環境では，
+% めちゃめちゃ行間が広がってしまっているんだが。
+% \end{minipage}
+% 
+% \changes{v0.1.16}{2020/06/04}{列挙下での数式後空き量を適切に（その後無効化）。}
+%    \begin{macrocode}
+% \g@addto@macro\@trivlist{%
+% \if@inlabel\relax\else
+% \setlength\belowdisplayskip{-1zh plus 0.1zh minus 0.1zh}%
+% \setlength\belowdisplayshortskip{-1zh plus 0.1zh minus 0.1zh}%
+% \fi
+% }
+%    \end{macrocode}
+% 目次の点線を設定。
+% \paragraph{例}\par
+% 節題\jsTocLine42
+%    \begin{macrocode}
+\renewcommand{\jsTocLine}{%
+\leaders\hbox{\hss…\hss}\hfill}
+%    \end{macrocode}
+% 節の文字を設定。
+%    \begin{macrocode}
+\renewcommand{\postsectionname}{節}
+%    \end{macrocode}
+% 
+% \section{種々学問}
+% \subsection{数学}
+% \AmSLaTeX{}の読込・設定。
+% 番号付き行立て数式を\verb|\[\]|で。
+% \pkg{hyperref}対策（出典失念）。
+% 行立て数式中での改行を許可（但し準抑制）。
+%    \begin{macrocode}
+\RequirePackage{amsmath}
+\let\[=\equation
+\let\]=\endequation
+\let\equation=\gather
+\let\endequation=\endgather
+\allowdisplaybreaks[2]
+%    \end{macrocode}
+% また，ここで\pkg{stix2}を読み込む。
+%    \begin{macrocode}
+\RequirePackage{stix2}
+%    \end{macrocode}
+% \paragraph{\pkg{mathtools}の読込・設定}
+% 参照した時のみ数式番号表示。
+% 小止符の垂直位置を中央に。
+% 斜体補正。
+% \[\label{eqn:EnstC}
+% E = m c^2
+% \]
+% \eqref{eqn:EnstC}と参照した場合は式番号が付く。
+%    \begin{macrocode}
+\RequirePackage{mathtools}
+\mathtoolsset{showonlyrefs,centercolon,mathic}
+%    \end{macrocode}
+% \begin{macro}{\ceil}
+% \begin{macro}{\floor}
+% \begin{tabbing}
+% \hspace{6zw} \= \hspace{4em} \kill
+% 天井函数     \> \(\ceil*{x}\) \\
+% 床函数       \> \(\floor*{x}\)
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
+\DeclarePairedDelimiter{\floor}{\lfloor}{\rfloor}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \paragraph{述語論理}
+% \subparagraph{準備}
+% 「登録」を実現する為の鉤。初期では空。
+%    \begin{macrocode}
+\def\lcl@@deducation@hook{}
+%    \end{macrocode}
+% 登録簿操作処理をした結果を格納。初期では空。
+%    \begin{macrocode}
+\def\lcl@@deducation@result{}
+%    \end{macrocode}
+% 登録されているか否かの真偽値。
+%    \begin{macrocode}
+\newif\if@lcl@@deducation@string@registerd@
+%    \end{macrocode}
+% 排列の始めか否かの真偽値。初期では真。
+%    \begin{macrocode}
+\newif\if@lcl@@deducation@string@isfirst@
+\@lcl@@deducation@string@isfirst@true
+%    \end{macrocode}
+%    \begin{macrocode}
+\def\lcl@@deducation@string@get#1{%
+%    \end{macrocode}
+% 初期において，登録真偽を偽に設定。
+%    \begin{macrocode}
+\@lcl@@deducation@string@registerd@false
+%    \end{macrocode}
+% 入力文字列を格納。
+%    \begin{macrocode}
+\def\lcl@@deducation@in{#1}%
+%    \end{macrocode}
+% 初期設定: 登録簿に無い場合は入力文字列その儘。
+%    \begin{macrocode}
+\let\lcl@@deducation@result=\lcl@@deducation@in
+\lcl@@deducation@hook
+}
+%    \end{macrocode}
+% \begin{environment}{prooftree}
+% \begin{macro}{\prooftreeil}
+% \verb|{prooftree}|環境と，その一行版\verb|\prooftreeil|\footnote%
+% {proof tree \textbf{i}n \textbf{l}ine}命令。
+%    \begin{macrocode}
+\newenvironment{prooftree}{%
+\begingroup
+\setlength{\arrayrulewidth}{0.8pt}%
+\setlength{\arraycolsep}{0pt}%
+\renewcommand{\arraystretch}{1.2}%
+\begin{array}[b]{cl}
+}{%end
+&
+\end{array}%
+\endgroup
+}
+\DeclareRobustCommand{\prooftreeil}[1]{\ensuremath{%
+\begin{prooftree}
+#1
+\end{prooftree}%
+}}
+%    \end{macrocode}
+% \end{macro}
+% \end{environment}
+% \begin{macro}{\ptand}
+% \begin{macro}{\deducate}
+% \emph{この辺りの命令の，数学に於ける呼称が分からんので教えて！}
+% 証明樹に於ける論理積？？\verb|\ptand|。
+% 名前不明\verb|\deducate|。
+% 星を付けると省略体になる\verb|\deducate*|。
+% \[
+% \begin{prooftree}
+% {\prooftreeil{{x \to y} \ptand 
+% \prooftreeil{[v:x] \deducate* x} \deducate{el} y}}
+% \ptand
+% x
+% \deducate{el,in,\twonotes\text{\sffamily\small らんらん}}
+% y
+% \end{prooftree}
+% \]
+% \changes{v0.1.12}{2020/06/02}{\cmd{deducation}等追加。}
+% \changes{v0.1.17}{2020/06/05}{\cmd{deducation}改良。}
+% \changes{v0.1.18}{2020/06/05}{\env{prooftree}等追加，
+% \cmd{deducation}等削除。}
+%    \begin{macrocode}
+\DeclareRobustCommand*{\ptand}{\quad}
+\DeclareRobustCommand*{\deducate}{%
+\@ifstar\lcl@@deducate@s\lcl@@deducate
+}
+\def\lcl@@deducate#1{%
+% 本処理
+& \smash{\raisebox{-0.6\normalbaselineskip}%
+{[\ensuremath{%本当はここの処理を分割したい。
+\@for\@tempa:=#1\do{%
+\expandafter\lcl@@deducation@string@get%
+\expandafter{\@tempa}%
+\if@lcl@@deducation@string@isfirst@
+\@lcl@@deducation@string@isfirst@false
+\else
+,\,
+\fi
+\lcl@@deducation@result
+}%
+}]}} \\
+\cline{1-1}%
+}
+\def\lcl@@deducate@s{%
+\\
+\smash{\fourvdots}%
+\\
+}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \begin{macro}{\RegisterDeducationString}
+% \begin{macro}{\showdeducationstring}
+% 導入規則の入力を簡易化・統一する命令。
+% \cmd{RegisterDeducationString}\arg{文字列}\arg{出力文字}の様に用いる。
+% \cmd{showdeducationstring}は補助命令。
+% \begin{tabbing}
+% \hspace{6zw} \= \hspace{4em} \kill
+% \texttt{el}  \> \(\showdeducationstring{el}\) \\
+% \texttt{in}  \> \(\showdeducationstring{in}\)
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareRobustCommand{\RegisterDeducationString}[2]{%
+\g@addto@macro\lcl@@deducation@hook{%
+\def\lcl@@deducation@string{#1}%
+\ifx\lcl@@deducation@in\lcl@@deducation@string\relax
+\@lcl@@deducation@string@registerd@true
+\gdef\lcl@@deducation@result{#2}%
+\fi
+}%
+}
+\@onlypreamble\RegisterDeducationString
+\DeclareRobustCommand{\showdeducationstring}[1]{%
+\lcl@@deducation@string@get{#1}%
+\if@lcl@@deducation@string@registerd@
+\lcl@@deducation@result
+\else
+\PackageError{local}{%
+String `#1' is not registered
+}{%
+If you want to use `#1', register it as\MessageBreak
+\string\RegisterDeducationString\{#1\}\{...\}.
+}%
+\fi
+}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+%    \begin{macrocode}
+\RegisterDeducationString{el}{\to\text{\sffamily\small 除去}}
+\RegisterDeducationString{in}{\lnot\text{\sffamily\small 導入}}
+%    \end{macrocode}
+% \begin{macro}{\。}
+% 行立て数式末尾の日本語句点。
+% \[
+% a = b c\。
+% \]
+% \iffalse
+\DeclareRobustCommand*\。%
+% \fi
+%    \begin{macrocode}
+{\relax\ifmmode\text{\hbox to 0pt{。}}\else。\fi}
+%    \end{macrocode}
+% \end{macro}
+% \subsection{物理}
+% \pkg[http://texdoc.net/texmf-dist/doc/latex/physics/physics.pdf]%
+% {physics}読み込み。
+%    \begin{macrocode}
+\RequirePackage{physics}
+%    \end{macrocode}
+% \begin{macro}{\aqty}
+% 山括弧\(\aqty{x}\)。
+% \pkg{physics}で用意されていないので，追加した。
+%    \begin{macrocode}
+\DeclareDocumentCommand\aqty{ l m }%
+{\braces#1{\langle}{\rangle}{#2}}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\calorie}
+% \begin{macro}{\atom}
+% \begin{macro}{\個}
+% \begin{macro}{\秒}\mbox{}
+% \paragraph{単位}
+% \begin{tabbing}
+% \hspace{6zw} \= \hspace{4em} \kill
+% 熱量         \> \SI{5.4e3}{\calorie} \\
+% 大気圧       \> \SI{1}{\atom} \\
+% 個数         \> \SI{3}{\個} \\
+% 時間         \> \SI{1/3.0e8}{\秒}
+% \end{tabbing}
+%    \begin{macrocode}
+\RequirePackage{siunitx}
+\DeclareSIUnit\calorie{cal}
+\DeclareSIUnit\atom{atm}
+%    \end{macrocode}
+% この後に\verb|\DeclareSIUnit\個{個}|の様な定義があるが，
+% \pkg{doc}を使用した梱解説文書（通常の文書ではなく）を作成時に，
+% 
+% \fbox{\begin{minipage}{0.9\linewidth}\ttfamily%
+% Invalid code (20491), should be in the range 0..255.
+% \end{minipage}}
+% 
+% と怒られる。
+% これは「個」という文字が\verb|\uppercase|で扱える文字の範疇を超えているからだが，
+% どうやって対処すれば良いか見当が付かない。
+% とりあえず梱文書作成時には読み込まれないよう\verb|\iffalse|と\verb|\fi|で囲んだ。
+% 思い切り対処療法なのでどうにかしたい……。
+% \iffalse
+\DeclareSIUnit\個{個}
+\DeclareSIUnit\秒{秒}
+% \fi
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \pkg{siunitx}の諸設定。
+%    \begin{macrocode}
+\sisetup{
+    detect-all,
+	per-mode = symbol,
+	quotient-mode = fraction,
+	range-phrase = {から},
+	list-separator = {，},
+	list-final-separator = {及び},
+	list-pair-separator = {及び}
+}
+%    \end{macrocode}
+% \begin{macro}{\Lgn}
+% \begin{macro}{\LgnD}
+% \begin{macro}{\Hmn}
+% \begin{macro}{\HmnD}
+% \paragraph{主に物理学で用いる諸記号}\par
+% \begin{tabbing}
+% \hspace{12zw} \= \hspace{4em} \kill
+% Lagrange函数 \> \(\Lgn\) \\
+% Lagrange函数密度 \> \(\LgnD\) \\
+% Hamilton函数 \> \(\Hmn\) \\
+% Hamilton函数密度 \> \(\HmnD\)
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareMathSymbol{\Lgn}{\mathalpha}{integrals}{`L}
+\DeclareMathSymbol{\LgnD}{\mathalpha}{symbols}{`L}
+\DeclareMathSymbol{\Hmn}{\mathalpha}{integrals}{`H}
+\DeclareMathSymbol{\HmnD}{\mathalpha}{symbols}{`H}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \subsection{化学}
+%    \begin{macrocode}
+\RequirePackage[version=4]{mhchem}
+%    \end{macrocode}
+
+% \section{字体と文字}
+% \paragraph{著名な集合}
+% 著名な集合を表す字体
+%    \begin{macrocode}
+% \DeclareSymbolFont{mathset}{LS1}{stix2bb}{m}{n}
+%    \end{macrocode}
+% \begin{macro}{\naturals}
+% \begin{macro}{\integers}
+% \begin{macro}{\Pintegers}
+% \begin{macro}{\nNintegers}
+% \begin{macro}{\nZintegers}
+% \begin{macro}{\Nintegers}
+% \begin{tabbing}
+% \hspace{6zw} \= \hspace{4em} \kill
+% 自然数\footnotemark \> \(\naturals\) \\
+% 整数         \> \(\integers\) \\
+% 正整数       \> \(\Pintegers\) \\
+% 非負整数     \> \(\nNintegers\) \\
+% 非零整数     \> \(\nZintegers\) \\
+% 負整数       \> \(\Nintegers\)
+% \end{tabbing}
+% \footnotetext{界隈に依って定義が分かれるので使用は控えるべきかも知れない}
+%    \begin{macrocode}
+\DeclareMathSymbol{\naturals}{\mathalpha}{symbols3}{`N}
+\DeclareMathSymbol{\integers}{\mathalpha}{symbols3}{`Z}
+\DeclareRobustCommand{\Pintegers}{\integers^+}
+\DeclareRobustCommand{\nNintegers}{\integers^\leq}
+\DeclareRobustCommand{\nZintegers}{\integers^\times}
+\DeclareRobustCommand{\Nintegers}{\integers^-}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \begin{macro}{\rationals}
+% \begin{macro}{\reals}
+% \begin{macro}{\exreals}
+% \begin{macro}{\stdreals}
+% \begin{macro}{\complexes}
+% \begin{tabbing}
+% \hspace{6zw} \= \hspace{4em} \kill
+% 有理数       \> \(\rationals\) \\
+% 実数         \> \(\reals\) \\
+% 特異実数     \> \(\exreals\) \\
+% 標準実数     \> \(\stdreals\) \\
+% 複素数       \> \(\complexes\)
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareMathSymbol{\rationals}{\mathalpha}{symbols3}{`Q}
+\DeclareMathSymbol{\reals}{\mathalpha}{symbols3}{`R}
+\g@addto@macro\pdfstringdefPreHook{%
+\renewcommand{\exreals}{\unichar{"211D}}}
+\DeclareMathSymbol{\exreals}{\mathalpha}{letters}{`R}
+\g@addto@macro\pdfstringdefPreHook{\renewcommand{\exreals}{R}}
+\DeclareMathSymbol{\stdreals}{\mathalpha}{bold-operators}{`R}
+\DeclareMathSymbol{\complexes}{\mathalpha}{symbols3}{`C}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \begin{macro}{\rationals}
+% \begin{macro}{\field}
+% \begin{tabbing}
+% \hspace{6zw} \= \hspace{4em} \kill
+% 素数？       \> \(\primes\) \\
+% 体           \> \(\field\)
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareMathSymbol{\primes}{\mathalpha}{symbols3}{`P}
+\DeclareMathSymbol{\field}{\mathalpha}{symbols3}{`K}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+
+% \begin{macro}{\vec}
+% \begin{macro}{\mtx}
+% \begin{tabbing}
+% \hspace{6zw} \= \hspace{4em} \kill
+% 向量         \> \(\vec{x}\) \\
+% 行列         \> \(\mtx{A}\)
+% \end{tabbing}
+%    \begin{macrocode}
+\let\vec=\@undefined
+% \DeclareMathAlphabet{\vec}{LS1}{stix2}{b}{it}
+\DeclareRobustCommand*{\vec}[1]{\mathbfit{#1}}
+% \DeclareMathAlphabet{\mtx}{LS1}{stix2}{b}{n}
+\DeclareRobustCommand*{\mtx}[1]{\mathbfsf{#1}}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+
+% \begin{macro}{\mset}
+% \begin{macro}{\msetbef}
+% \begin{macro}{\msetaft}
+% 集合を宣言する。
+% 例: \(\mset{x}{x \in \reals}\)。
+% 二段に亘る場合:
+% \[\begin{multlined}
+% \msetbef{x_{\text{めっちゃ長い}}} \\
+% \msetaft{x \in X_{\text{めっちゃ長い}}}
+% \end{multlined}\]
+% 
+% \paragraph{問題}
+% 下の式は通る筈だが怒られる。
+% \par\vspace{0.5zh}
+% \begin{minipage}{0.9\textwidth}\MacroFont
+% \begin{verbatim}
+% \[
+% \mathcal{M}_{m, n}(\reals) \surinjto
+% \begin{multlined}[t]
+% \msetbef*{\fnmap{f}{\reals^n}{\reals^m}} \\
+% \msetaft*{\begin{aligned}
+% f(x + y) &= f(x) + f(y) \\
+% f(cx)    &= c f(x)
+% \end{aligned}}
+% \end{multlined}
+% \]
+% \end{verbatim}
+% \end{minipage}
+% 
+% \changes{v0.1.11}{2020/05/27}{集合宣言の縦棒を外側括弧と同調して
+% 適宜変倍するようにした。}
+%    \begin{macrocode}
+\DeclarePairedDelimiterX{\mset}[2]{\{}{\}}%
+{#1\:\delimsize\vert\:\mathopen{}#2}
+\DeclarePairedDelimiterX{\msetbef}[1]{\{}{\vert}{#1\:}
+\DeclarePairedDelimiterX{\msetaft}[1]{}{\}}{#1}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+
+% \begin{macro}{\numof}
+% 集合の要素数・濃度\(\numof{S}\)。
+%    \begin{macrocode}
+\DeclareRobustCommand{\numof}[1]{\#\qty{#1}}
+%    \end{macrocode}
+% \end{macro}
+
+
+% \begin{macro}{\dimtime}
+% \begin{macro}{\dimmass}
+% \begin{macro}{\dimlen}
+% \paragraph{量の次元を表わす字体}
+% \begin{tabbing}
+% \hspace{6zw} \= \hspace{4em} \kill
+% 時間 \> \(\dimtime\) \\
+% 長さ \> \(\dimlen\) \\
+% 質量 \> \(\dimmass\)
+% \end{tabbing}
+%    \begin{macrocode}
+% \DeclareSymbolFont{qtydim}{LS1}{stix2sf}{m}{n}
+\DeclareMathSymbol{\dimtime}{\mathord}{arrows1}{`T}
+\DeclareMathSymbol{\dimmass}{\mathord}{arrows1}{`M}
+\DeclareMathSymbol{\dimlen}{\mathord}{arrows1}{`L}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+
+% \begin{macro}{\Cnp}
+% \begin{macro}{\Ccc}
+% \begin{macro}{\Cpi}
+% \paragraph{定数を表す字体}
+% \begin{tabbing}
+% \hspace{12zw} \= \hspace{4em} \kill
+% 自然対数の底 \> \(\Cnp\) \\
+% 虚数単位     \> \(\Ciu\) \\
+% 宇宙定数\footnotemark \> \(\Ccc\) \\
+% 円周率       \> \(\Cpi\)
+% \end{tabbing}
+% \footnotetext{光速度はともかく，宇宙定数は完全に
+% 観測結果に基づく物理定数なので立てるのはマズいかも知れない。}
+%    \begin{macrocode}
+% “Too Many Symbol Font” 回避
+% \DeclareSymbolFont{mathconst}{LS1}{stix2}{m}{n}
+\DeclareMathSymbol{\Cnp}{\mathalpha}{operators}{`e}
+\DeclareMathSymbol{\Ciu}{\mathalpha}{operators}{`i}
+\DeclareMathSymbol{\Ccc}{\mathalpha}{operators}{"03}
+\DeclareMathSymbol{\Cpi}{\mathalpha}{operators}{"19}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \begin{macro}{\axis}
+% 座標軸を表わす。例: \(\vec{e}_\axis{x}\)。
+%    \begin{macrocode}
+% \DeclareMathAlphabet{\axis}{LS1}{stix2}{m}{n}
+\DeclareRobustCommand*{\axis}[1]{\mathrm{#1}}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\mathcat}
+% 圏を表す字体。
+%    \begin{macrocode}
+% \DeclareMathAlphabet{\mathcat}{LS1}{stix2}{b}{n}
+\DeclareRobustCommand*{\mathcat}[1]{\mathbf{#1}}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\DeclareMathCatSymbol}
+% 圏を表わす記号を定義する命令。
+%    \begin{macrocode}
+\@onlypreamble\DeclareMathCatSymbol
+\DeclareRobustCommand*{\DeclareMathCatSymbol}[2]{%
+\DeclareRobustCommand*{#1}{{\mathcat{#2}}}%
+}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\zeroojb}
+% 零対象を表わす点\(\zeroojb\)。
+%    \begin{macrocode}
+\DeclareMathSymbol{\zeroojb}{\mathord}{symbols2}{"24}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\SetC}
+% \begin{macro}{\TopC}
+% \begin{macro}{\RelC}
+% \begin{macro}{\MapC}
+% \begin{macro}{\pTopC}
+% \paragraph{種々の圏を表わす命令}
+% \begin{tabbing}
+% \hspace{12zw} \= \hspace{4em} \kill
+% 集合の圏     \> \(\SetC\) \\
+% 位相空間の圏 \> \(\TopC\) \\
+% 関係の圏     \> \(\RelC\) \\
+% 写像の圏     \> \(\MapC\) \\
+% 点付き位相空間の圏 \> \(\pTopC\)
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareMathCatSymbol{\SetC}{Set}
+\DeclareMathCatSymbol{\TopC}{Top}
+\DeclareMathCatSymbol{\RelC}{Rel}
+\DeclareMathCatSymbol{\MapC}{Map}
+\DeclareRobustCommand*{\pTopC}{{\TopC_\zeroojb}}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \begin{macro}{\ManC}
+% \begin{macro}{\MonC}
+% \begin{macro}{\GrpC}
+% \begin{macro}{\AbC}
+% \begin{macro}{\RngC}
+% \begin{tabbing}
+% \hspace{12zw} \= \hspace{4em} \kill
+% 多様体の圏   \> \(\ManC\) \\[0.5zh]
+% \begin{minipage}{\textwidth}\small
+% {\headfont 注意}: 多様体の圏を表わす命令\verb|\ManC|の仕様は，
+% noetherに於ける仕様と非互換である。
+% noetherに於いては必須応付子を一つ取って，
+% それを肩に乗せていたが，
+% \pkg{local}に於いては集合の圏を表わす命令\verb|\SetC|と同様に，
+% 単に圏を表わす字体で “Man” を出力するだけである。
+% \(p\)級多様体の圏を表わすには\verb|\ManC^p|とすれば良い（\(\ManC^p\)）。
+% \end{minipage} \\[0.5zh]
+% 単系の圏    \> \(\MonC\) \\
+% 群の圏      \> \(\GrpC\) \\
+% 可換群の圏  \> \(\AbC\) \\
+% 擬環の圏    \> \(\RngC\)
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareMathCatSymbol{\ManC}{Man}
+\DeclareMathCatSymbol{\MonC}{Mon}
+\DeclareMathCatSymbol{\GrpC}{Grp}
+\DeclareMathCatSymbol{\AbC}{Ab}
+\DeclareMathCatSymbol{\RngC}{Rng}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \begin{macro}{\RingC}
+% \begin{macro}{\CRingC}
+% \begin{macro}{\CatC}
+% \begin{macro}{\CATC}
+% \begin{macro}{\GraphC}
+% \begin{tabbing}
+% \hspace{12zw} \= \hspace{4em} \kill
+% 環の圏        \> \(\RingC\) \\
+% 可換環の圏    \> \(\CRingC\) \\
+% 小さい圏の圏  \> \(\CatC\) \\
+% 環の圏        \> \(\CATC\) \\
+% 小さい画表の圏 \> \(\GraphC\)
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareMathCatSymbol{\RingC}{Ring}
+\DeclareMathCatSymbol{\CRingC}{CRing}
+\DeclareMathCatSymbol{\CatC}{Cat}
+\DeclareMathCatSymbol{\CATC}{CAT}
+\DeclareMathCatSymbol{\GraphC}{Graph}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \begin{macro}{\MagC}
+% \begin{tabbing}
+% \hspace{6zw} \= \hspace{4em} \kill
+% 漿群の圏     \> \(\MagC\)
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareMathCatSymbol{\MagC}{Mag}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\PShC}
+% \begin{macro}{\ShC}
+% \begin{macro}{\CShC}
+% \begin{tabbing}
+% \hspace{12zw} \= \hspace{4em} \kill
+% 前層の圏      \> \(\PShC{X}\) \\
+% 層の圏        \> \(\ShC{X}\) \\
+% 圏上の層の圏  \> \(\CShC{\mathcal{C}}{X}\)
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareRobustCommand*{\PShC}[1]{\mathcat{PSh}(#1)}
+\DeclareRobustCommand*{\ShC}[1]{\mathcat{Sh}(#1)}
+\DeclareRobustCommand*{\CShC}[2]{#1\text{-}\ShC{#2}}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \begin{macro}{\CohC}
+% \begin{macro}{\CCohC}
+% \begin{macro}{\QcohC}
+% \begin{macro}{\CQcohC}
+% \begin{tabbing}
+% \hspace{12zw} \= \hspace{4em} \kill
+% 連接層の圏      \> \(\CohC{X}\) \\
+% 圏上の連接層の圏 \> \(\CCohC{\mathcal{C}}{X}\) \\
+% 準連接層の圏  \> \(\QcohC{X}\) \\
+% 圏上の準連接層の圏 \> \(\CQcohC{\mathcal{C}}{X}\)
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareRobustCommand*{\CohC}[1]{\mathcat{Coh}(#1)}
+\DeclareRobustCommand*{\CCohC}[2]{#1\text{-}\CohC{#2}}
+\DeclareRobustCommand*{\QcohC}[1]{\mathcat{Qcoh}(#1)}
+\DeclareRobustCommand*{\CQcohC}[2]{#1\text{-}\QcohC{#2}}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \begin{macro}{\ModuleC}
+% \begin{macro}{\AlgebraC}
+% \begin{macro}{\VectC}
+% \begin{macro}{\opC}
+% \begin{macro}{\sliceC}
+% \begin{tabbing}
+% \hspace{12zw} \= \hspace{4em} \kill
+% 環上の加群の圏 \> \(\ModuleC{R}\) \\
+% 環上の代数の圏 \> \(\AlgebraC{R}\) \\
+% 向量空間の圏   \> \(\VectC{K}\) \\
+% 双対圏         \> \(\opC{\mathcal{C}}\) \\
+% 切片圏         \> \(\sliceC{\mathcal{A}}{\mathcal{B}}\) \\
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareRobustCommand*{\ModuleC}[1]{#1\text{-}\mathcat{Mod}}
+\DeclareRobustCommand*{\AlgebraC}[1]{#1\text{-}\mathcat{Alg}}
+\DeclareRobustCommand*{\VectC}[1]{{#1}\text{-}\mathcat{Vect}}
+\DeclareRobustCommand*{\opC}[1]{{{#1}^{\mathrm{op}}}}
+\DeclareRobustCommand*{\sliceC}[2]{{#1}\!\downarrow\!{#2}}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \begin{macro}{\hTopC}
+% \begin{macro}{\hpTopC}
+% \begin{macro}{\ccTopC}
+% \begin{macro}{\ccpTopC}
+% \begin{tabbing}
+% \hspace{18zw} \= \hspace{4em} \kill
+% 相同の圏      \> \(\hTopC\) \\
+% 点付き相同の圏 \> \(\hpTopC\) \\
+% 位相空間Descartes閉圏 \> \(\ccTopC\) \\
+% 点付き位相空間Descartes閉圏 \> \(\ccpTopC\) \\
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareMathCatSymbol{\hTopC}{hTop}
+\DeclareRobustCommand*{\hpTopC}{{\hTopC_\zeroojb}}
+\DeclareMathCatSymbol{\ccTopC}{ccTop}
+\DeclareRobustCommand*{\ccpTopC}{{\ccTopC_\zeroojb}}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \begin{macro}{\MeasC}
+% \begin{macro}{\MSpC}
+% \begin{macro}{\ccTopC}
+% \begin{tabbing}
+% \hspace{12zw} \= \hspace{4em} \kill
+% 可測空間の圏  \> \(\MeasC\) \\
+% 測度空間の圏  \> \(\MSpC\) \\
+% 確率空間の圏  \> \(\ProbC\) \\
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareMathCatSymbol{\MeasC}{Meas}
+\DeclareMathCatSymbol{\MSpC}{MSp}
+\DeclareMathCatSymbol{\ProbC}{Prob}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% 
+% \begin{macro}{\mnote}
+% 数式中の註記。
+% 例:
+% \[
+% a \times b = b \times a \mnote{可換律}
+% \]
+%    \begin{macrocode}
+\DeclareRobustCommand{\mnote}[1]{\ensuremath{\;\text{（#1）}}}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\mathlang}
+% （代数）言語を記述する字体。
+% 例: \(\mathlang{A}\)。
+%    \begin{macrocode}
+% \DeclareMathAlphabet{\mathlang}{LS1}{stix2scr}{m}{n}
+\DeclareSymbolFontAlphabet{\mathlang}{symbols}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\mathalg}
+% 代数を記述する字体。
+% 例: \(\mathalg{A}\)。
+%    \begin{macrocode}
+% \DeclareMathAlphabet{\mathalg}{LS1}{stix2frak}{b}{n}
+\DeclareRobustCommand*{\mathalg}[1]{\mathbffrak{#1}}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\mathstr}
+% 文字を記述する字体。計算機科学の文脈で用いる。
+% 例: \(\mathstr{s}\)。
+%    \begin{macrocode}
+% \DeclareMathAlphabet{\mathstr}{LS1}{stix2tt}{m}{n}
+\DeclareSymbolFontAlphabet{\mathstr}{arrows3}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\mathstr}
+% 評価\(\evalat{\dv[2]{t} \vec{r}(t)}{t = t_0}\)。
+% \verb|\rule{0pt}{2.5ex}|は汚ないのでどうにかしたい。
+%    \begin{macrocode}
+\DeclareRobustCommand{\evalat}{%
+\@ifstar\lcl@@evalat@s\lcl@@evalat
+}
+\def\lcl@@evalat@s#1#2{%
+{\left.{#1\rule{0pt}{2.5ex}}\right|}_{#2}%
+}
+\def\lcl@@evalat#1#2{%
+{\left.{#1\rule{0pt}{2.5ex}}\right|}_{\mathrlap{#2}}%
+}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\fnmap}
+% \begin{macro}{\fnsurj}
+% \begin{macro}{\fninj}
+% \begin{macro}{\fnsurinj}
+% \begin{macro}{\nattf}
+% \paragraph{函数の表記法}\par
+% \begin{tabbing}
+% \hspace{6zw} \= \hspace{4em} \kill
+% 写像 \>
+% \(\mapto, \mapsto\)，\(\fnmap{f}{D}{C}, \fnmap*{g}{x}{y}\) \\
+% 全射 \> \(\surjto\)，\(\fnsurj{f}{D}{C}\) \\
+% 単射 \> \(\injto\)，\(\fninj{f}{D}{C}\) \\
+% 全単射 \> \(\surinjto\)，\(\fnsurinj{f}{D}{C}\) \\
+% 自然変換 \>
+% \(\nattfto, \nattfsto\)，\(\nattf{f}{D}{C}, \nattf*{g}{x}{y}\) \\
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareMathSymbol{\mapto}{\mathrel}{arrows1}{"99}
+\DeclareRobustCommand{\fnmap}{%
+\@ifstar\lcl@@fnmap@s\lcl@@fnmap
+}
+\def\lcl@@fnmap@s#1#2#3{%
+{#1} \colon\allowbreak {#2}
+\mapsto\allowbreak {#3}
+}
+\def\lcl@@fnmap#1#2#3{%
+{#1} \colon\allowbreak {#2}
+\mapto\allowbreak {#3}
+}
+\DeclareMathSymbol{\surjto}{\mathrel}{arrows1}{"AA}
+\DeclareRobustCommand{\fnsurj}[3]{\ensuremath{%
+{#1} \colon\allowbreak {#2}
+\surjto\allowbreak {#3}
+}}
+\DeclareMathSymbol{\injto}{\mathrel}{arrows1}{"A7}
+\DeclareRobustCommand{\fninj}[3]{\ensuremath{%
+{#1} \colon\allowbreak {#2}
+\injto\allowbreak {#3}
+}}
+\DeclareMathSymbol{\surinjto}{\mathrel}{arrows2}{"AF}
+\DeclareRobustCommand{\fnsurinj}[3]{\ensuremath{%
+{#1} \colon\allowbreak {#2}
+\surinjto\allowbreak {#3}
+}}
+\DeclareMathSymbol{\nattfto}{\mathrel}{arrows1}{"D9}
+\DeclareMathSymbol{\nattfsto}{\mathrel}{arrows2}{"A0}
+\DeclareRobustCommand{\nattf}{%
+\@ifstar\lcl@@nattf@s\lcl@@nattf
+}
+\def\lcl@@nattf@s#1#2#3{%
+{#1} \colon\allowbreak {#2}
+\nattfsto\allowbreak {#3}
+}
+\def\lcl@@nattf#1#2#3{%
+{#1} \colon\allowbreak {#2}
+\nattfto\allowbreak {#3}
+}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+%    \begin{macrocode}
+\DeclareRobustCommand\scrprod[2]{\ensuremath{%
+{#1} \cdot {#2}%
+}}
+\DeclareRobustCommand\vecprod[2]{\ensuremath{%
+{#1} \times {#2}%
+}}
+\DeclareRobustCommand\idmap[1]{\ensuremath{%
+\mathrm{id}_{#1}%
+}}
+%    \end{macrocode}
+% \begin{macro}{\morp}
+% 圏の射\({\mathcal{A}}\morp{\mathcal{A}}\)。
+% 使い方合ってるのか？
+%    \begin{macrocode}
+\DeclareRobustCommand*{\morp}{\;\mathrm{in}\;}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\idar}
+% 恒等射\(\idar\)。
+%    \begin{macrocode}
+\DeclareMathOperator{\idar}{id}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\coef}
+% \(n\)係数可換群\(\coef{n}{G}\)。
+%    \begin{macrocode}
+\DeclareRobustCommand*{\coef}[2]{\prescript{#1}{}{#2}}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\trps}
+% 転置\(\trps{A}\)。
+%    \begin{macrocode}
+\DeclareMathSymbol{\transpose}{\mathord}{arrows1}{`T}
+\DeclareRobustCommand*{\trps}[1]{\ensuremath{{#1}^{\mathsf{T}}}}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\powset}
+% 冪集合\(\powset{X}\)
+%    \begin{macrocode}
+\DeclareRobustCommand*{\powset}[1]%
+{\ensuremath{\mathfrak{P}\qty(#1)}}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\LieA}
+% Lie群\(\LieA\)
+%    \begin{macrocode}
+\DeclareRobustCommand{\LieA}{\mathfrak{g}}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\indlim}
+% \begin{macro}{\prjlim}
+% この二命令の仕様について，ちょっと不恰好なので変更するかも。
+% \begin{tabbing}
+% \hspace{12zw} \= \hspace{4em} \kill
+% 射影極限・逆極限 \> \(\indlim{F(O_p)}\) \\
+% 帰納極限・直極限 \> \(\prjlim{F(O_p)}\)
+% \end{tabbing}
+% \changes{v0.1.19}{2020/06/05}{射影・帰納極限の命令が
+% 逆に定義されていたのを修正。}
+%    \begin{macrocode}
+\DeclareRobustCommand{\indlim}[2][]{%
+\if\relax\detokenize{#1}\relax
+\lim\limits_{\longleftarrow} #2%
+\else
+\lim_{\substack{\longleftarrow\\#1}} #2%
+\fi
+}
+\DeclareRobustCommand{\prjlim}[2][]{%
+\if\relax\detokenize{#1}\relax
+\lim\limits_{\longrightarrow} #2%
+\else
+\lim_{\substack{\longrightarrow\\#1}} #2%
+\fi
+}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% 
+% \begin{macro}{\End}
+% \begin{macro}{\Aut}
+% \begin{macro}{\Inn}
+% \begin{macro}{\Out}
+% \begin{macro}{\Map}
+% \begin{tabbing}
+% \hspace{12zw} \= \hspace{4em} \kill
+% 自己準同型函手 \> \(\End\) \\
+% 自己同型函手 \> \(\Aut\) \\
+% 内部自己同型函手 \> \(\Inn\) \\
+% 外部自己同型函手 \> \(\Out\) \\
+% 写像集合函手 \> \(\Map\)
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareMathOperator{\End}{End}
+\DeclareMathOperator{\Aut}{Aut}
+\DeclareMathOperator{\Inn}{Inn}
+\DeclareMathOperator{\Out}{Out}
+\DeclareMathOperator{\Map}{Map}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \begin{macro}{\Hom}
+% \begin{macro}{\oHom}
+% \begin{macro}{\iHom}
+% \begin{macro}{\ridx}
+% \begin{macro}{\lidx}
+% \begin{tabbing}
+% \hspace{12zw} \= \hspace{4em} \kill
+% 射集合函手    \> \(\Hom\) \\
+% 外部Hom函手 \> \(\oHom\) \\
+% 内部Hom函手   \> \(\iHom\) \\
+% 右内部Hom函手 \> \(\ridx\) \\
+% 左内部Hom函手 \> \(\lidx\)
+% \end{tabbing}
+% 
+% 外部Hom函手は射集合函手と同じ記号である。
+% 外部Homは添字として行き先の圏を明記する
+% （\(\fnmap{\oHom_\mathcal{D}}%
+% {\opC{\mathcal{C}} \times \mathcal{C}}{\mathcal{D}}\)）
+% か，さもなければ使わない方が良い。
+% なお，\(\oHom_\SetC=\Hom\)である。
+%    \begin{macrocode}
+\DeclareMathOperator{\Hom}{Hom}
+\DeclareMathOperator{\oHom}{Hom}
+\DeclareMathOperator{\iHom}{hom}
+\DeclareMathSymbol{\ridx}{\mathord}{letters}{"2E}
+\DeclareMathSymbol{\lidx}{\mathord}{letters}{"2F}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \begin{macro}{\dom}
+% \begin{macro}{\cod}
+% \begin{macro}{\ker}
+% \begin{macro}{\cok}
+% \begin{macro}{\img}
+% \begin{macro}{\coimg}
+% \begin{tabbing}
+% \hspace{6zw} \= \hspace{4em} \kill
+% 始域         \> \(\dom\) \\
+% 終域         \> \(\cod\) \\
+% 核           \> \(\ker\) \\
+% 余核         \> \(\cok\) \\
+% 像           \> \(\img\) \\
+% 余像         \> \(\coimg\)
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareMathOperator{\dom}{dom}
+\DeclareMathOperator{\cod}{cod}
+% なんか知らんけど定義済み
+% \DeclareMathOperator{\ker}{ker}
+\DeclareMathOperator{\cok}{cok}
+\DeclareMathOperator{\img}{im}
+\DeclareMathOperator{\coimg}{coim}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \begin{macro}{\mplx}
+% \begin{macro}{\cmplx}
+% \begin{tabbing}
+% \hspace{6zw} \= \hspace{4em} \kill
+% 双対複体     \> \(\mplx{X}\) \\
+% 複体         \> \(\cmplx{X}\)
+% \end{tabbing}
+% \changes{v0.1.7}{2020/05/25}{（双対）複体の点を他の点記号と統一。}
+%    \begin{macrocode}
+\DeclareRobustCommand{\mplx}[1]{#1^{\zeroojb}}
+\DeclareRobustCommand{\cmplx}[1]{#1_{\zeroojb}}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \begin{macro}{\germ}
+% \begin{macro}{\germsf}
+% \begin{tabbing}
+% \hspace{6zw} \= \hspace{4em} \kill
+% 全芽集合     \> \(\germ\) \\
+% 芽空間函手   \> \(\germsf\)
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareMathSymbol{\germ}{\mathord}{integrals}{`G}
+\DeclareMathSymbol{\germsf}{\mathord}{symbols}{`G}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\Spec}
+% \begin{tabbing}
+% \hspace{6zw} \= \hspace{4em} \kill
+% \ruby{擬似}{\texteng{affine}}\ruby{概型}{\texteng{scheme}}函手
+% \> \(\Spec \::\: \RingC \rightarrow \opC{\RingC}\:;\:R\mapsto \Spec(R)\)
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareMathOperator{\Spec}{Spec}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \begin{macro}{\Cov}
+% \begin{tabbing}
+% \hspace{6zw} \= \hspace{4em} \kill
+% 被覆系       \> \(\Cov{X}\)
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareRobustCommand{\Cov}[1]{\mathcat{Cov}({#1})}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\Hess}
+% Hesse演算子。例: \(\Hess_p(f)\)。
+% \changes{v0.2.0}{2020/06/26}{\cmd{Hess}新規作成。}
+%    \begin{macrocode}
+\DeclareMathOperator{\Hess}{Hess}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\concat}
+% \begin{macro}{\bigconcat}
+% 文字の結合\(\mathstr{s} \concat \mathstr{t}\)，
+% その繰り返し\(\bigconcat_{i = 1}^{n}{\mathstr{s}_i}\)。
+%    \begin{macrocode}
+\DeclareMathSymbol{\concat}{\mathbin}{letters}{"E1}
+\DeclareMathSymbol{\bigconcat}{\mathop}{largesymbols}{"C0}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \begin{macro}{\curvature}
+% \begin{macro}{\volume}
+% \kenten{未だ文書化してない}。
+% Spectrumの日本語訳。
+% \begin{tabbing}
+% \hspace{6zw} \= \hspace{4em} \kill
+% 曲率       \> \(\curvature\) \\
+% 容積？     \> \(\volume\)
+% \end{tabbing}
+%    \begin{macrocode}
+\DeclareMathOperator{\curvature}{curv}
+\DeclareMathOperator{\volume}{vol}
+\DeclareMathOperator{\spectr}{Spec}% !!!!!!!!
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \begin{macro}{\steady}
+% 定常状態\(v_\steady\)。
+% 「定数」ではないかも知れないが，\verb|mathconst|と同じ字体・意味にする。
+% \changes{v0.1.6}{2020/05/25}{\cmd{steady}追加。}
+%    \begin{macrocode}
+\DeclareMathSymbol{\steady}{\mathord}{operators}{`s}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\patclr}
+% 特解\(x_\patclr\)。
+%    \begin{macrocode}
+\DeclareMathSymbol{\patclr}{\mathord}{operators}{`s}
+\g@addto@macro\pdfstringdefPreHook{\renewcommand{\patclr}{s}}
+%    \end{macrocode}
+% \end{macro}
+% 
+% \pkg[http://texdoc.net/texmf-dist/doc/latex/tools/enumerate.pdf]%
+% {enumerate}読み込み。
+% \paragraph{例}
+% \verb|[{ZFC}~1]|と指定。
+% \begin{enumerate}[{ZFC}~1]
+%   \item ごめん，
+%   \item ZFC公理系の詳細忘れた。
+% \end{enumerate}
+%    \begin{macrocode}
+\RequirePackage{enumerate}
+%    \end{macrocode}
+% \begin{macro}{\hannum}
+% \begin{macro}{\Hannum}
+% 漢数字とその大字。
+%    \begin{macrocode}
+\DeclareRobustCommand*{\hannum}[1]%
+{\expandafter\@hannum\@nameuse{c@#1}}
+\def\@hannum#1{\kansuji #1}
+\DeclareRobustCommand*{\Hannum}[1]%
+{\expandafter\@Hannum\@nameuse{c@#1}}
+\def\@Hannum#1{\expandafter\@slowhannumcap\kansuji #1@}
+\def\@slowhannumcap#1{%
+\ifx @#1\else% @が来たら終端
+\if 〇#1零\else
+\if 一#1壱\else
+\if 二#1弐\else
+\if 三#1参\else
+\if 四#1肆\else
+\if 五#1伍\else
+\if 六#1陸\else
+\if 七#1漆\else
+\if 八#1捌\else
+\if 九#1玖\else
+#1%
+\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi
+\expandafter\@slowhannumcap
+\fi
+}
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \pkg{enumerate}が認識する語を追加拡張。
+% ^^A https://www.w3.org/TR/css-counter-styles-3/#japanese-formal
+% \makeatletter\setbox\@labels\box\voidb@x\makeatother
+% 
+% \begin{minipage}<t>{15zh}
+% \paragraph{例}
+% \verb|[一、]|と指定。
+% \begin{enumerate}[一、]
+%   \item 今般太陰曆ヲ廢シ太陽曆御頒行相成
+%   候ニ付來ル十二月三日ヲ以テ明治六年一月一日ト被定候事
+% 
+%   \item 一ケ年三百六十五日十ニケ月ニ分チ四年每ニ一日ノ閏ヲ置候事
+% \end{enumerate}
+% \end{minipage}
+% 
+% \changes{v0.1.14}{2020/06/03}{列挙関連を拡張。}
+%    \begin{macrocode}
+\g@addto@macro\@enhook{%
+\ifx 一\@entemp \def\@tempa{\@enLabel\hannum}\else
+\ifx 壱\@entemp \def\@tempa{\@enLabel\Hannum}\else
+\fi\fi}
+%    \end{macrocode}
+% 箇条符を再定義（既定が大きすぎるので）。
+% \changes{v0.1.10}{2020/05/26}{箇条符を変更。}
+%    \begin{macrocode}
+\renewcommand{\labelitemi}{・}
+%    \end{macrocode}
+% \begin{macro}{\均等割}
+% \均等割{8zw}{均等割り}
+% \changes{v0.1.23}{2020/06/25}{\cmd{kintou}・\cmd{均等割}追加。}
+%    \begin{macrocode}
+\newcommand{\kintou}[2]{%
+\let\lcl@@kintou@body=\@gobble%
+\@tfor\member:=#2\do{%
+\edef\lcl@@kintou@body{\lcl@@kintou@body\hfil\member}%
+}%
+\makebox[#1][s]{\lcl@@kintou@body}%
+}%
+%    \end{macrocode}
+% \iffalse
+\let\均等割=\kintou
+% \fi
+% \end{macro}
+
+% \section{図表類}
+% Appleの色使い\footnote{%
+% \href%
+% {https://developer.apple.com/design/human-interface-guidelines/ios/visual-design/color\#system-colors}%
+% {System Colors - Apple Developer}}を真似た。
+% \paragraph{参考}
+% 当該\LaTeX{}命令の断片を生成する論譜。
+% \par\vspace{0.5zh}
+% \begin{minipage}{0.9\textwidth}\MacroFont
+% \begin{verbatim}
+% {
+% <<'.' cat
+% changequote(`[', `]')dnl
+% define([xrgb], dnl
+% [[\definecolor{]][$1][[}{rgb}]][[{]]dnl
+% [[0.]][eval($2 * 1000 / 255, 10, 3)][[, ]]dnl
+% [[0.]][eval($3 * 1000 / 255, 10, 3)][[, ]]dnl
+% [[0.]][eval($4 * 1000 / 255, 10, 3)][[}]])dnl
+% .
+% <<. sed -e 's/\([[:alpha:]]\{1,\}\) \
+% \([[:digit:],]\{1,\}\)/xrgb(\1,\2)/'
+% Blue 0,122,255
+% Green 52,199,89
+% Indigo 88,86,214
+% Orange 255,149,0
+% Pink 255,45,85
+% Purple 175,82,222
+% Red 255,59,48
+% Teal 90,200,250
+% Yellow 255,204,0
+% .
+% } | m4
+% \end{verbatim}
+% \end{minipage}
+% 
+% \textcolor{Blue}  {青 (\texttt{Blue})}，
+% \textcolor{Green} {緑 (\texttt{Green})}，
+% \textcolor{Indigo}{藍 (\texttt{Indigo})}，
+% \textcolor{Orange}{橙 (\texttt{Orange})}，
+% \textcolor{Pink}  {桃 (\texttt{Pink})}，
+% \textcolor{Purple}{紫 (\texttt{Purple})}，
+% \textcolor{Red}   {赤 (\texttt{Red})}，
+% \textcolor{Teal}  {鴨 (\texttt{Teal})}，
+% \textcolor{Yellow}{黄 (\texttt{Yellow})}。
+% 
+% \pkg{color}は\pkg{hyperref}との兼ね合いで不具合があるので，
+% \pkg{xcolor}を\kenten{渋々}使う。
+%    \begin{macrocode}
+\RequirePackage{xcolor}
+\definecolor{Blue}  {rgb}{0.000, 0.478, 1.000}
+\definecolor{Green} {rgb}{0.203, 0.780, 0.349}
+\definecolor{Indigo}{rgb}{0.345, 0.337, 0.839}
+\definecolor{Orange}{rgb}{1.000, 0.584, 0.000}
+\definecolor{Pink}  {rgb}{1.000, 0.176, 0.333}
+\definecolor{Purple}{rgb}{0.686, 0.321, 0.870}
+\definecolor{Red}   {rgb}{1.000, 0.231, 0.188}
+\definecolor{Teal}  {rgb}{0.352, 0.784, 0.980}
+\definecolor{Yellow}{rgb}{1.000, 0.800, 0.000}
+%    \end{macrocode}
+% 図像系
+%    \begin{macrocode}
+\RequirePackage{graphicx}
+\if@lcl@@usetikz@% もしもTikZを使うなら……
+% TikZ梱を読み込み，設定。
+\RequirePackage{tikz}
+\usetikzlibrary{calc,positioning,babel}
+\tikzset{%
+every node/.style = {
+    font = \small
+}%
+}
+\fi
+%    \end{macrocode}
+
+% \section{国際化}
+%    \begin{macrocode}
+\RequirePackage[main=japanese,english,ngerman,greek]{babel}
+\RequirePackage[main=japanese]{pxbabel}
+\babeltags{eng = english, deu = ngerman}
+\RequirePackage[babel]{csquotes}
+\DeclareQuoteStyle{japanese}
+    {「}
+    {」}
+    [0em]
+    {『}
+    {』}
+%    \end{macrocode}
+% \subsection{日本語組版}
+% \pkg{plext}（\pLaTeX{}拡張）読み込み。
+%    \begin{macrocode}
+\RequirePackage{plext}
+%    \end{macrocode}
+% \paragraph{振仮名}
+% 振仮名の初期設定を自動切替熟語\ruby{振仮名}{ルビ}に。
+% 横組時\kenten{圏点}記号を「﹅」に。
+%    \begin{macrocode}
+\RequirePackage{pxrubrica}
+\rubysetup{J}
+\kentenmarkinyoko{sesame}
+%    \end{macrocode}
+% 
+% \section{索引}
+% \begin{macro}{\textterm}
+% \textterm{用語}の字体。
+%    \begin{macrocode}
+\DeclareTextFontCommand{\textterm}{\sffamily\bfseries}
+%    \end{macrocode}
+% \end{macro}
+%    \begin{macrocode}
+\if@lcl@@usemidx@% もしもmakeidxを使うなら……
+% makeidx梱を読み込み，設定。
+\RequirePackage{makeidx}
+\makeindex
+%    \end{macrocode}
+% \begin{macro}{\term}
+% \begin{macro}{\termx}
+% \begin{macro}{\terme}
+% \begin{macro}{\termu}
+% \begin{macro}{\termU}
+% \textbf{注意}: これら命令の仕様は個人的に気に入らない（冗長すぎる）ので，
+% 大幅な改変が予想される。
+%    \begin{macrocode}
+\DeclareRobustCommand{\term}[2]%
+{\textterm{#1}\index{#2@#1}}
+\DeclareRobustCommand{\termx}[2]%
+{\textterm{#1}\index{#2}}
+\DeclareRobustCommand{\terme}[3]%
+{\textterm{#1}\index{#2@#1|see{#3}}}
+\DeclareRobustCommand{\termu}[4][]%
+{\textterm{#2}\index{#4!#3@#1#2}}
+\DeclareRobustCommand{\termU}[4][]%
+{\textterm{#2}\index{#4!#3@#2#1}}
+\else% そうでなければ……
+\DeclareRobustCommand{\term}[1]%
+{\textterm{#1}}
+\fi
+%    \end{macrocode}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \end{macro}
+% \verb|\term|命令系列改良案\par
+% \noindent\verb|\term[ようご]{用語}|
+% 第1引数を省略した場合は第2引数をそのまま登録。\par
+% \noindent\verb|\term*[ようご]{用語}{上位}|
+% 上位の用語に関連付け。\par
+% \noindent\verb|\Term[ようご]{用語}|
+% 定義の頁。
+% 
+% \section{私事}
+% \begin{macro}{\ans}
+% 解答に網を掛ける。
+% 例: 従って，\ans{\(x = 3\sqrt{\Cpi}\)}。
+%    \begin{macrocode}
+\definecolor{ansbg}{gray}{0.85}
+\DeclareRobustCommand*\ans[1]{\colorbox{ansbg}{#1}}
+%    \end{macrocode}
+% \end{macro}
+% 
+% \paragraph{級・梱文書関連}
+%    \begin{macrocode}
+\if@lcl@@ltxdoc@mode@
+\RequirePackage{doc}
+% \@namedef{ver@hyperref.sty}{2001/01/01}
+% \RequirePackage{hypdoc}
+\let\ver@hyperref=\@undefined
+\EnableCrossrefs
+\PageIndex
+\RecordChanges
+\setcounter{IndexColumns}{2}
+\IndexPrologue{%
+\part*{索引}%
+\markboth{索引}{索引}%
+\addcontentsline{toc}{part}{索引}%
+}
+\GlossaryPrologue{%
+\part*{変更履歴}%
+\markboth{変更履歴}{変更履歴}%
+\addcontentsline{toc}{part}{変更履歴}%
+}
+%    \end{macrocode}
+% \begin{macro}{\MacroFont}
+% 幕令表示用の書体を設定。
+% 等幅書体（日本語はゴシック体）で，
+% 和欧字間空白を空けない（\verb|\noautoxspacing|）。
+% \changes{v0.1.24}{2020/06/25}{新規フォント族を宣言し，
+% 文字の大きさを欧文印字機体に合わせて縮小。}
+%    \begin{macrocode}
+\DeclareKanjiFamily{\kanjiencodingdefault}{thb}{}
+\DeclareRelationFont%
+{\kanjiencodingdefault}{thb}{m}{}%
+{\encodingdefault}{\ttdefault}{m}{}
+\DeclareFontShape{\kanjiencodingdefault}{thb}{m}{n}%
+{<->s*[0.8]upjisg-h}{}
+\renewcommand\MacroFont{%
+\noautoxspacing
+\userelfont
+\fontencoding{\kanjiencodingdefault}%
+\fontfamily{thb}%
+\fontseries{m}%
+\fontshape{\updefault}%
+\small
+}
+%    \end{macrocode}
+% \end{macro}
+%    \begin{macrocode}
+\RequirePackage{bxtexlogo}
+\bxtexlogoimport{*,**}
+%    \end{macrocode}
+%    \begin{macrocode}
+\RequirePackage{verbatim}
+%    \end{macrocode}
+%    \begin{macrocode}
+\renewcommand{\generalname}{一般}
+%    \end{macrocode}
+% \begin{macro}{\cmd}
+% 命令を表示。
+%    \begin{macrocode}
+\DeclareRobustCommand*{\cmd}[1]{%
+{\MacroFont\textbackslash #1}命令
+}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\env}
+% 環境を表示。
+%    \begin{macrocode}
+\DeclareRobustCommand*{\env}[1]{%
+{\MacroFont\{#1\}}環境
+}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\arg}
+% 引数を表示。
+% 星を付けると任意引数を表わす。
+% \changes{v0.3.0}{2020-07-04}{新規作成。}
+%    \begin{macrocode}
+\DeclareRobustCommand*{\arg}{%
+\@ifstar\lcl@@arg@s\lcl@@arg
+}
+\def\lcl@@arg#1{{%
+\MacroFont
+\{{\slshape #1}\}%
+}}
+\def\lcl@@arg@s#1{{%
+\MacroFont
+[{\slshape #1}]%
+}}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\cls}
+% 級名を表示。
+% \changes{v0.2.2}{2020-07-04}{書式を直接に指定するように。}
+%    \begin{macrocode}
+\newcommand*\cls[2][]{%
+\if\relax\detokenize{#1}\relax
+{\sffamily #2}%
+\else
+\href{#1}{\sffamily #2}%
+\fi
+級譜%
+}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\pkg}
+% 梱名を表示。
+% \changes{v0.1.13}{2020/06/03}{\cmd{pkg}命令改名及び改変。}
+% \changes{v0.2.2}{2020-07-04}{書式を直接に指定するように。}
+%    \begin{macrocode}
+\DeclareRobustCommand*\pkg[2][]{%
+\if\relax\detokenize{#1}\relax
+{\sffamily #2}%
+\else
+\href{#1}{\sffamily #2}%
+\fi
+梱譜%
+}
+%    \end{macrocode}
+% \end{macro}
+% \begin{macro}{\fname}
+% 譜名を表示。
+% \changes{v0.2.2}{2020-07-04}{書式を直接に指定するように。}
+%    \begin{macrocode}
+\DeclareRobustCommand*\fname[2][]{%
+\if\relax\detokenize{#1}\relax
+{\ttfamily #2}%
+\else
+\href{#1}{\ttfamily #2}%
+\fi
+譜類%
+}
+%    \end{macrocode}
+% \end{macro}
+% PDF中で解釈されると困る命令を退避。
+% \changes{v0.3.1}{2020-07-04}{追加。}
+%    \begin{macrocode}
+\g@addto@macro\pdfstringdefPreHook{%
+\renewcommand{\arg}{%
+\@ifstar\lcl@@arg@s\lcl@@arg
+}
+\def\lcl@@arg#1{{%
+\{#1\}%
+}}
+\def\lcl@@arg@s#1{{%
+[#1]%
+}}
+\renewcommand{\cmd}[1]{\textbackslash #1}
+\renewcommand{\env}[1]{\{#1\}}
+\renewcommand{\cls}[2][]{#2級譜}
+\renewcommand{\pkg}[2][]{#2梱譜}
+\renewcommand{\fname}[2][]{#2譜類}
+}
+% これでは駄目。
+% \pdfstringdef{\pkg}{}
+%    \end{macrocode}
+%    \begin{macrocode}
+\fi
+%    \end{macrocode}
+% 
+% \section{PDF}
+% \emph{この\pkg{hyperref}は一番最後に読み込むこと！}
+%    \begin{macrocode}
+\if@lcl@@ltxdoc@mode@
+%    \end{macrocode}
+%    \begin{macrocode}
+\PassOptionsToPackage{
+	dvipdfmx,
+	bookmarks=true,
+	bookmarksnumbered=true,
+	pdfdisplaydoctitle=true,
+	pdfusetitle=true,
+	pdflang={ja},
+	linktoc=page,
+	unicode=true
+}{hyperref}
+%    \end{macrocode}
+%    \begin{macrocode}
+\RequirePackage{hypdoc}
+%    \end{macrocode}
+%    \begin{macrocode}
+\else
+\RequirePackage[
+	dvipdfmx,
+	bookmarks=true,
+	bookmarksnumbered=true,
+	pdfdisplaydoctitle=true,
+	pdfusetitle=true,
+	pdflang={ja},
+	linktoc=page,
+	unicode=true
+]{hyperref}
+\fi
+%    \end{macrocode}
+%    \begin{macrocode}
+\hypersetup{
+    pdfborderstyle=,
+    colorlinks=true,
+    linkcolor=Blue,
+    anchorcolor=Green,
+    citecolor=Green,
+    filecolor=Blue,
+    urlcolor=Blue
+}
+%    \end{macrocode}
+% \pkg{otf}と\pkg{hyperref}対策。
+%    \begin{macrocode}
+\let\Hy@ReturnAfterFi=\ltx@ReturnAfterFi
+%    \end{macrocode}
+% PDF中で解釈されると困る命令を退避。
+% 引数付きの命令の再定義がなぜか機能していない？
+% \changes{v0.1.15}{2020/06/03}{PDF用退避命令を宣言。}
+%    \begin{macrocode}
+\g@addto@macro\pdfstringdefPreHook{%
+\renewcommand{\linebreak}{ }%
+\renewcommand{\newline}{ }%
+\renewcommand{\quad}{ }%
+}
+% これでは駄目。
+% \pdfstringdef{\pkg}{}
+%    \end{macrocode}
+% \pkg[http://texdoc.net/texmf-dist/doc/platex/pxjahyper/pxjahyper.pdf]%
+% {pxjahyper}読み込み，設定。
+%    \begin{macrocode}
+\RequirePackage{pxjahyper}
+%    \end{macrocode}
+% 
+% （実装終わり）
+% 
+% \restoregeometry
+% \onecolumn
+% \begingroup
+% \hbadness=10000
+% \newcount\hbadness
+% \hfuzz=\maxdimen
+% \PrintChanges
+% \PrintIndex
+% \endgroup
+% \Finale
+% 
+% \twocolumn
+% \appendix
+% \section{訳語}
+% \begin{tabbing}
+% \hspace{12zw} \= \hspace{4em} \kill
+% cosmological constant \> 宇宙定数 \\
+% exotic -- \> 特異--- \\
+% topological invariant \> 位相不変量 \\
+% (co)bordism \> （余）\ruby{境射}{きょう|しゃ}\footnotemark \\
+% (non-)vanishing \> （非）零 \\
+% canonical construction \> 正準構成 \\
+% quintessence \> 第五元素（仮説）\\
+% affine \> 擬似 \\
+% handle \> \ruby{把手}{は|しゅ}\cite{日英専辞} \\
+% handlebody \> 把手体\cite{日英専辞} \\
+% exactly soluble system \> 完全可解系 \\
+% scalar \> 数量 \\
+% vector \> 向量 \\
+% tensor \> 張量 \\
+% instanton \> 即子\footnotemark \\
+% homotopy \> 準同位\cite{今川:1961} \\
+% manifold \> 多様体 \\
+% variety \> 代数多様体 \\
+% homology \> 相同\cite{樋口:2018} \\
+% compact \> 完閉\cite{中井:1996} \\
+% plug \> \ruby{閉子}{へい|し} \\
+% cork \> \ruby{塞子}{そく|し} \\
+% wild \> 野蛮な\footnotemark \\
+% tame \> 従順な \\
+% \end{tabbing}
+% \footnotetext{bordismはフランス語で「境界」を意味する\textit{bord}に由来した用語である。
+% 日本語の論文中ではカタカナ音写しか見受けられなかったので，造語した。}
+% \footnotetext{instantonは``instant''「即時的な」``-on''「粒子」のことである。
+% が，悲しいことにカタカナ音写しか見受けられなかったので，造語した。}
+% \footnotetext{\cite{大教大:2008}では「野性的」。}
+% \printbibliography
+\endinput
