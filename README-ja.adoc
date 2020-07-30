@@ -1,0 +1,6 @@
+= LaAE-latex-template--LaAE組合を対象としたLaTeX雛形 =
+B̅ (cmplstofB) <20594300+cmplstofB@users.noreply.github.com>
+v0.1.0, 2020-07-30
+
+== 梗概 ==
+**LaAE-latex-template**は，『殆ど至る所で百合 (Lilium at Almost Everywhere; LaAE)』組合を対象とした，LaTeXによる卓上組版を支援する種々の設定を提供する一連の譜類群である。
