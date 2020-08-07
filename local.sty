@@ -52,7 +52,7 @@
 % 梱譜情報の提供。
 %    \begin{macrocode}
 \ProvidesPackage{local}%
-[2020-08-07 0.3.0
+[2020-08-07 0.3.1
 User local package file.]
 %    \end{macrocode}
 % \changes{v0.1.4}{2020/05/19}{\cmd{changes}による変更履歴記録開始。
@@ -1327,16 +1327,17 @@ If you want to use `#1', register it as\MessageBreak
 % 星を付けると正規直交基底を表わす
 % \(\lbasis*{x}\)。
 % \changes{v0.3.0}{2020-08-07}{新規設立。}
+% \changes{v0.3.1}{2020-08-07}{閉じ波括弧が足りないのを修正。}
 %    \begin{macrocode}
 \DeclareRobustCommand*{\lbasis}{%
 \@ifstar\lcl@@lbasis@s\lcl@@lbasis@}
 % 通常の基底。
 %    \begin{macrocode}
-\def\lcl@@lbasis@#1{\vec{e}_{\axis{#1}}
+\def\lcl@@lbasis@#1{\vec{e}_{\axis{#1}}}
 %    \end{macrocode}
 % 正規直交基底であることを強調。
 %    \begin{macrocode}
-\def\lcl@@lbasis@s#1{\vec{e}_{\hat{\axis{#1}}}
+\def\lcl@@lbasis@s#1{\vec{e}_{\hat{\axis{#1}}}}
 %    \end{macrocode}
 % \end{macro}
 % 
