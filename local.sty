@@ -1196,6 +1196,17 @@ If you want to use `#1', register it as\MessageBreak
 % \end{macro}
 % \end{macro}
 % \end{macro}
+% \begin{macro}{\StructSh}
+% \begin{tabbing}
+% \hspace{12zw}      \= \hspace{4em} \kill
+% \(M\)上の構造層函手 \> \(\StructSh{M}\)
+% \end{tabbing}
+% 
+%    \begin{macrocode}
+\DeclareRobustCommand\StructSh[1]{%
+\mathcal{O}_{#1}}
+%    \end{macrocode}
+% \end{macro}
 % \begin{macro}{\dom}
 % \begin{macro}{\cod}
 % \begin{macro}{\ker}
